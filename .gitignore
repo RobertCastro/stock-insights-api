@@ -1,0 +1,43 @@
+# Archivos binarios de compilación
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Archivos de compilación generales
+*.out
+*.a
+*.o
+
+# Archivos generados por go build / go install
+/bin/
+/pkg/
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de dependencias
+vendor/
+
+# Archivos de configuración de IDEs/editors
+.vscode/
+.idea/
+*.swp
+
+# Módulos Go
+go.sum
+
+# Logs
+*.log
+
+# Cobertura de pruebas
+*.coverprofile
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Archivos de test cache
+*.test
