@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 )
 
@@ -35,5 +36,6 @@ func getEnv(key, defaultValue string) string {
 }
 
 func (c *Config) GetDBConnectionString() string {
-	return "postgresql://" + c.DBUser + ":" + c.DBPassword + "@" + c.DBHost + ":" + c.DBPort + "/" + c.DBName + "?sslmode=" + c.DBSSLMode
+	return fmt.Sprintf("postgresql://%s:%s@%s:%s/%s?sslmode=%s",
+		c.DBUser, c.DBPassword, c.DBHost, c.DBPort, c.DBName, c.DBSSLMode)
 }
