@@ -87,3 +87,65 @@ func (r *StockRepository) SaveStocks(ctx context.Context, stocks []models.Stock)
 
 	return nil
 }
+
+// Recupera stocks con paginación y ordenamiento
+func (r *StockRepository) GetStocks(ctx context.Context, orderBy string, sortOrder string, offset, limit int) ([]models.Stock, error) {
+
+	if orderBy == "" {
+		orderBy = "time"
+	}
+	if sortOrder == "" {
+		sortOrder = "DESC"
+	}
+
+	// Consulta ordenamiento y paginación
+	query := fmt.Sprintf(`
+		SELECT 
+			ticker, company, target_from, target_to, 
+			action, brokerage, rating_from, rating_to, time
+		FROM stocks
+		ORDER BY %s %s
+		LIMIT $1 OFFSET $2
+	`, orderBy, sortOrder)
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("error querying stocks: %w", err)
+	}
+	defer rows.Close()
+
+	var stocks []models.Stock
+	for rows.Next() {
+		var stock models.Stock
+		if err := rows.Scan(
+			&stock.Ticker,
+			&stock.Company,
+			&stock.TargetFrom,
+			&stock.TargetTo,
+			&stock.Action,
+			&stock.Brokerage,
+			&stock.RatingFrom,
+			&stock.RatingTo,
+			&stock.Time,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning stock: %w", err)
+		}
+		stocks = append(stocks, stock)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating stocks: %w", err)
+	}
+
+	return stocks, nil
+}
+
+// CountStocks cuenta el total de stocks en la base de datos
+func (r *StockRepository) CountStocks(ctx context.Context) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM stocks").Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("error counting stocks: %w", err)
+	}
+	return count, nil
+}
