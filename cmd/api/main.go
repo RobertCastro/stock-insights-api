@@ -6,10 +6,10 @@ import (
 	"log"
 	"time"
 
-	"github.com/RobertCastro/stock-recommendation-service/internal/adapters/secondary/cockroachdb"
-	"github.com/RobertCastro/stock-recommendation-service/internal/adapters/secondary/stockapi"
-	"github.com/RobertCastro/stock-recommendation-service/internal/infrastructure/config"
-	"github.com/RobertCastro/stock-recommendation-service/internal/infrastructure/database"
+	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/cockroachdb"
+	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/stockapi"
+	"github.com/RobertCastro/stock-insights-api/internal/infrastructure/config"
+	"github.com/RobertCastro/stock-insights-api/internal/infrastructure/database"
 )
 
 func main() {

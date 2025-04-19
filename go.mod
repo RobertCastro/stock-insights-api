@@ -1,4 +1,4 @@
-module github.com/RobertCastro/stock-recommendation-service
+module github.com/RobertCastro/stock-insights-api
 
 go 1.23.3
 

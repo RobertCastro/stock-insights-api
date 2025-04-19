@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/lib/pq"
 
-	"github.com/RobertCastro/stock-recommendation-service/internal/domain/models"
+	"github.com/RobertCastro/stock-insights-api/internal/domain/models"
 )
 
 // Implementa la interfaz de repositorio

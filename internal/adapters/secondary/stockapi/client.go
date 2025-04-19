@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/RobertCastro/stock-recommendation-service/internal/domain/models"
+	"github.com/RobertCastro/stock-insights-api/internal/domain/models"
 )
 
 const (
