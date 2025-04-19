@@ -13,7 +13,6 @@ import (
 )
 
 func main() {
-	// Crear contexto con timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
@@ -30,12 +29,10 @@ func main() {
 	// Crear repositorio
 	repo := cockroachdb.NewStockRepository(db)
 
-	// Inicializar base de datos
 	if err := repo.InitDB(ctx); err != nil {
 		log.Fatalf("Error initializing database: %v", err)
 	}
 
-	// Crear cliente de la API
 	client := stockapi.NewClient()
 
 	// Obtener todos los stocks de la API
@@ -54,39 +51,6 @@ func main() {
 	}
 
 	fmt.Println("Stocks guardados correctamente")
-
-	// Recuperar y mostrar algunos stocks para verificar
-	fmt.Println("\nRecuperando algunos stocks de la base de datos:")
-	if len(stocks) > 0 {
-		// Recuperar el primer stock por ticker
-		ticker := stocks[0].Ticker
-		stock, err := repo.GetStockByTicker(ctx, ticker)
-		if err != nil {
-			log.Fatalf("Error getting stock by ticker: %v", err)
-		}
-
-		fmt.Printf("Stock recuperado por ticker %s: %s (%s), Rating: %s -> %s\n",
-			ticker, stock.Company, stock.Ticker, stock.RatingFrom, stock.RatingTo)
-	}
-
-	// Recuperar stocks por broker específico
-	if len(stocks) > 0 {
-		brokerage := stocks[0].Brokerage
-		brokerStocks, err := repo.GetStocksByBrokerage(ctx, brokerage)
-		if err != nil {
-			log.Fatalf("Error getting stocks by brokerage: %v", err)
-		}
-
-		fmt.Printf("\nStocks de %s (%d):\n", brokerage, len(brokerStocks))
-		for i, stock := range brokerStocks {
-			if i >= 5 {
-				fmt.Printf("... y %d más\n", len(brokerStocks)-5)
-				break
-			}
-			fmt.Printf("- %s (%s): %s -> %s\n",
-				stock.Ticker, stock.Company, stock.TargetFrom, stock.TargetTo)
-		}
-	}
 
 	fmt.Println("\nProceso completado con éxito")
 }
