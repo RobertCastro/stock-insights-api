@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/cockroachdb"
+	"github.com/RobertCastro/stock-insights-api/internal/domain/models"
 )
 
 type StockHandler struct {
@@ -20,7 +21,73 @@ func NewStockHandler(repo *cockroachdb.StockRepository) *StockHandler {
 
 // ListStocks maneja la solicitud para listar stocks
 func (h *StockHandler) ListStocks(w http.ResponseWriter, r *http.Request) {
+	// Extraer parámetros de filtrado
+	brokerage := r.URL.Query().Get("brokerage")
+
 	// Parsear parámetros de paginación
+	pagination := parsePagination(r)
+
+	var stocks []models.Stock
+	var totalStocks int
+	var err error
+
+	// Obtener stocks según los filtros
+	if brokerage != "" {
+		// Filtrar por brokerage
+		stocks, err = h.repo.GetStocksByBrokerage(r.Context(), brokerage, pagination.Offset, pagination.Limit)
+		if err != nil {
+			http.Error(w, "Error al obtener stocks por brokerage: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Contar total de stocks para paginación
+		totalStocks, err = h.repo.CountStocksByBrokerage(r.Context(), brokerage)
+		if err != nil {
+			http.Error(w, "Error al contar stocks por brokerage: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Sin filtros, obtener todos los stocks
+		stocks, err = h.repo.GetStocks(r.Context(), "", "", pagination.Offset, pagination.Limit)
+		if err != nil {
+			http.Error(w, "Error al obtener stocks: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		// Contar total de stocks para paginación
+		totalStocks, err = h.repo.CountStocks(r.Context())
+		if err != nil {
+			http.Error(w, "Error al contar stocks: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	totalPages := (totalStocks + pagination.Limit - 1) / pagination.Limit
+
+	response := map[string]interface{}{
+		"stocks":         stocks,
+		"total_stocks":   totalStocks,
+		"total_pages":    totalPages,
+		"current_page":   pagination.Page,
+		"items_per_page": pagination.Limit,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Error al codificar respuesta: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+// Estructura para manejar datos de paginación
+type Pagination struct {
+	Page   int
+	Limit  int
+	Offset int
+}
+
+// Extrae y valida los parámetros de paginación
+func parsePagination(r *http.Request) Pagination {
 	page := 1
 	pageSize := 10
 
@@ -39,33 +106,12 @@ func (h *StockHandler) ListStocks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Calcular offset para la consulta a la BD
 	offset := (page - 1) * pageSize
 
-	stocks, err := h.repo.GetStocks(r.Context(), "", "", offset, pageSize)
-	if err != nil {
-		http.Error(w, "Error al obtener stocks: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	totalStocks, err := h.repo.CountStocks(r.Context())
-	if err != nil {
-		http.Error(w, "Error al contar stocks: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	totalPages := (totalStocks + pageSize - 1) / pageSize
-
-	response := map[string]interface{}{
-		"stocks":         stocks,
-		"total_stocks":   totalStocks,
-		"total_pages":    totalPages,
-		"current_page":   page,
-		"items_per_page": pageSize,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "Error al codificar respuesta: "+err.Error(), http.StatusInternalServerError)
-		return
+	return Pagination{
+		Page:   page,
+		Limit:  pageSize,
+		Offset: offset,
 	}
 }

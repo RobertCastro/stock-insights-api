@@ -149,3 +149,57 @@ func (r *StockRepository) CountStocks(ctx context.Context) (int, error) {
 	}
 	return count, nil
 }
+
+// Recupera stocks filtrados por brokerage con paginación
+func (r *StockRepository) GetStocksByBrokerage(ctx context.Context, brokerage string, offset, limit int) ([]models.Stock, error) {
+	query := `
+		SELECT 
+			ticker, company, target_from, target_to, 
+			action, brokerage, rating_from, rating_to, time
+		FROM stocks
+		WHERE brokerage = $1
+		ORDER BY time DESC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, brokerage, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("error querying stocks by brokerage: %w", err)
+	}
+	defer rows.Close()
+
+	var stocks []models.Stock
+	for rows.Next() {
+		var stock models.Stock
+		if err := rows.Scan(
+			&stock.Ticker,
+			&stock.Company,
+			&stock.TargetFrom,
+			&stock.TargetTo,
+			&stock.Action,
+			&stock.Brokerage,
+			&stock.RatingFrom,
+			&stock.RatingTo,
+			&stock.Time,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning stock: %w", err)
+		}
+		stocks = append(stocks, stock)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating stocks: %w", err)
+	}
+
+	return stocks, nil
+}
+
+// Cuenta el total de stocks para un brokerage específico
+func (r *StockRepository) CountStocksByBrokerage(ctx context.Context, brokerage string) (int, error) {
+	var count int
+	err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM stocks WHERE brokerage = $1", brokerage).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("error counting stocks by brokerage: %w", err)
+	}
+	return count, nil
+}
