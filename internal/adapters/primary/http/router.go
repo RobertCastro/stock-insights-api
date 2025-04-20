@@ -43,8 +43,11 @@ func (r *Router) SetupRoutes() http.Handler {
 	// API v1
 	api := router.PathPrefix("/api/v1").Subrouter()
 
-	// Ruta para listar stocks
+	// Ruta para listar stocks (filtrado por ticker, brokerage, rating y ordenamiento)
 	api.HandleFunc("/stocks", r.stockHandler.ListStocks).Methods("GET")
+
+	// Ruta para obtener detalles de un stock específico
+	api.HandleFunc("/stocks/{ticker}", r.stockHandler.GetStockDetails).Methods("GET")
 
 	// Ruta de salud
 	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
