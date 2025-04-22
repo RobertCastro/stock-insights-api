@@ -23,14 +23,14 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
         
     - name: Configure Docker for Artifact Registry
-      run: gcloud auth configure-docker
+      run: gcloud auth configure-docker us-central1-docker.pkg.dev
       
     - name: Build Docker image
       run: |
-        docker build -t gcr.io/${{ secrets.GCP_PROJECT_ID }}/golang-backend:${{ github.sha }} .
-        docker push gcr.io/${{ secrets.GCP_PROJECT_ID }}/golang-backend:${{ github.sha }}
+        docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }} .
+        docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
         
     - name: Deploy to GKE
       run: |
         gcloud container clusters get-credentials backend-cluster --zone ${{ secrets.GCP_ZONE }}
-        kubectl set image deployment/backend-app backend=gcr.io/${{ secrets.GCP_PROJECT_ID }}/golang-backend:${{ github.sha }}
+        kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
