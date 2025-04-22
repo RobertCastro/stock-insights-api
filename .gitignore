@@ -41,3 +41,13 @@ go.sum
 
 # Archivos de test cache
 *.test
+
+# Deployment
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate.*
+*.tfplan
+*.tfvars.*
+*.tfstate.*
+terraform.tfvars
+.terraform/
