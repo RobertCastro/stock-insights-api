@@ -9,17 +9,6 @@ output "subnet_id" {
   value       = module.network.private_subnet_id
 }
 
-# Información de CockroachDB
-output "cockroachdb_instances" {
-  description = "Nombres de las instancias de CockroachDB"
-  value       = module.cockroachdb.instance_names
-}
-
-output "cockroachdb_internal_ips" {
-  description = "IPs internas de las instancias de CockroachDB"
-  value       = module.cockroachdb.internal_ips
-}
-
 # Información de Kubernetes
 output "kubernetes_cluster_name" {
   description = "Nombre del cluster de Kubernetes"

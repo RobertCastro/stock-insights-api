@@ -7,7 +7,8 @@ resource "google_service_account" "gke_sa" {
 resource "google_project_iam_member" "gke_sa_roles" {
   for_each = toset([
     "roles/container.developer",
-    "roles/storage.objectViewer"
+    "roles/storage.objectViewer",
+    "roles/artifactregistry.reader"
   ])
   
   project = var.project_id
@@ -24,18 +25,6 @@ module "network" {
   private_subnet_cidr = "10.0.0.0/16"
 }
 
-# Módulo de CockroachDB
-module "cockroachdb" {
-  source = "./modules/cockroachdb"
-  
-  instance_count        = var.cockroachdb_instance_count
-  machine_type          = var.cockroachdb_machine_type
-  zone                  = var.zone
-  disk_size_gb          = var.cockroachdb_disk_size_gb
-  subnetwork_id         = module.network.private_subnet_id
-  service_account_email = google_service_account.gke_sa.email
-}
-
 # Módulo de Kubernetes
 module "kubernetes" {
   source = "./modules/kubernetes"
@@ -48,22 +37,5 @@ module "kubernetes" {
   machine_type    = var.gke_machine_type
   service_account = google_service_account.gke_sa.email
   
-  depends_on = [module.network, module.cockroachdb]
-}
-
-# Regla de firewall específica para CockroachDB
-resource "google_compute_firewall" "cockroachdb_allow_sql" {
-  name    = "cockroachdb-allow-sql"
-  network = module.network.vpc_id
-  
-  allow {
-    protocol = "tcp"
-    ports    = ["26257", "8080"]
-  }
-  
-  # Permitir tráfico desde la subred de GKE
-  source_ranges = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
-  
-  # Aplicar a instancias con la etiqueta cockroachdb
-  target_tags = ["cockroachdb"]
+  depends_on = [module.network]
 }
