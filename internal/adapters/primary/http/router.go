@@ -6,6 +6,7 @@ import (
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/primary/http/handlers"
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/cockroachdb"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 // Router maneja las rutas HTTP de la API
@@ -23,6 +24,14 @@ func NewRouter(repo *cockroachdb.StockRepository) *Router {
 // SetupRoutes configura todas las rutas de la API
 func (r *Router) SetupRoutes() http.Handler {
 	router := mux.NewRouter()
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With"},
+		AllowCredentials: true,
+		MaxAge:           3600,
+	})
 
 	// Middleware para CORS
 	router.Use(func(next http.Handler) http.Handler {
@@ -55,5 +64,6 @@ func (r *Router) SetupRoutes() http.Handler {
 		w.Write([]byte(`{"status":"ok"}`))
 	}).Methods("GET")
 
-	return router
+	handler := c.Handler(router)
+	return handler
 }
