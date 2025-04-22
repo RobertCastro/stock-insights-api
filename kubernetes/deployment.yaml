@@ -14,12 +14,12 @@ spec:
     spec:
       containers:
       - name: backend
-        image: gcr.io/stock-insights-457603/golang-backend:latest
+        image: us-central1-docker.pkg.dev/stock-insights-457603/docker-images/golang-backend:latest
         ports:
         - containerPort: 8080
         env:
         - name: DB_HOST
-          value: "cockroachdb-0" # Apunta al primer nodo de CockroachDB
+          value: "cockroachdb-0"
         - name: DB_PORT
           value: "26257"
         - name: DB_USER

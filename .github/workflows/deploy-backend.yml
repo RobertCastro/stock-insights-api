@@ -41,4 +41,17 @@ jobs:
       run: |
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         gcloud container clusters get-credentials backend-cluster --zone ${{ secrets.GCP_ZONE }}
-        kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
+        
+        # Reemplazar el placeholder en el archivo de deployment
+        sed -i "s|PROJECT_ID_PLACEHOLDER|${{ secrets.GCP_PROJECT_ID }}|g" kubernetes/deployment.yaml
+        
+        # Intentar obtener el deployment para verificar si existe
+        if kubectl get deployment backend-app &> /dev/null; then
+          # Si existe, actualizar la imagen
+          kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
+        else
+          # Si no existe, aplicar el archivo de configuración completo
+          kubectl apply -f kubernetes/deployment.yaml
+          # Después de crear, actualizar a la última imagen específica
+          kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
+        fi
