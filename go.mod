@@ -1,6 +1,6 @@
 module github.com/RobertCastro/stock-insights-api
 
-go 1.23.3
+go 1.23
 
 require (
 	github.com/gorilla/mux v1.8.1 // indirect
