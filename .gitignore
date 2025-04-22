@@ -26,8 +26,6 @@ vendor/
 .idea/
 *.swp
 
-# Módulos Go
-go.sum
 
 # Logs
 *.log
