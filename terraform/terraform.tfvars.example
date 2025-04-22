@@ -1,0 +1,9 @@
+project_id = "id-proyecto"
+region     = "us-central1"
+zone       = "us-central1-a"
+
+backend_repo  = "https://github.com/usuario/backend"
+backend_image = "golang-backend"
+
+gke_node_count   = 2
+gke_machine_type = "e2-standard-2"

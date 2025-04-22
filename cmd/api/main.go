@@ -36,12 +36,12 @@ func main() {
 		log.Fatalf("Error initializing database: %v", err)
 	}
 
+	// Crear cliente de la API
+	client := stockapi.NewClient()
+
 	// Verificar si se debe sincronizar con la API externa
 	syncFlag := os.Getenv("SYNC_DATA")
 	if syncFlag == "true" {
-		// Crear cliente de la API
-		client := stockapi.NewClient()
-
 		// Obtener todos los stocks de la API
 		fmt.Println("Obteniendo todos los stocks de la API...")
 		stocks, err := client.FetchAllStocks()
@@ -60,7 +60,8 @@ func main() {
 		fmt.Println("Stocks guardados correctamente")
 	}
 
-	router := httpAdapter.NewRouter(repo)
+	router := httpAdapter.NewRouter(repo, client)
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8000"
@@ -70,9 +71,9 @@ func main() {
 		Addr:    ":" + port,
 		Handler: router.SetupRoutes(),
 
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		ReadTimeout:  120 * time.Second,
+		WriteTimeout: 120 * time.Second,
+		IdleTimeout:  120 * time.Second,
 	}
 
 	fmt.Printf("Servidor HTTP iniciado en el puerto %s\n", port)

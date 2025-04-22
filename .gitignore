@@ -26,8 +26,6 @@ vendor/
 .idea/
 *.swp
 
-# Módulos Go
-go.sum
 
 # Logs
 *.log
@@ -41,3 +39,12 @@ go.sum
 
 # Archivos de test cache
 *.test
+
+# Deployment
+terraform.tfstate
+terraform.tfstate.backup
+*.tfstate.*
+*.tfplan
+*.tfstate.*
+terraform.tfvars
+.terraform/
