@@ -22,6 +22,10 @@ jobs:
     - name: Set up Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
         
+    - name: Install GKE Auth Plugin
+      run: |
+        sudo apt-get install google-cloud-sdk-gke-gcloud-auth-plugin
+        
     - name: Configure Docker for Artifact Registry
       run: gcloud auth configure-docker us-central1-docker.pkg.dev
       
@@ -32,5 +36,6 @@ jobs:
         
     - name: Deploy to GKE
       run: |
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         gcloud container clusters get-credentials backend-cluster --zone ${{ secrets.GCP_ZONE }}
         kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
