@@ -19,11 +19,15 @@ spec:
         - containerPort: 8080
         env:
         - name: DB_HOST
-          value: "cockroachdb-0"
+          value: "cockroachdb-public"
         - name: DB_PORT
           value: "26257"
         - name: DB_USER
           value: "root"
+        - name: DB_PASSWORD
+          value: ""
+        - name: DB_NAME
+          value: "stockdb"
         - name: DB_SSL_MODE
           value: "disable"
 ---
@@ -36,5 +40,5 @@ spec:
     app: backend
   ports:
   - port: 80
-    targetPort: 8080
+    targetPort: 8000
   type: LoadBalancer

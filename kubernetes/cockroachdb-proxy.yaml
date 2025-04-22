@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cockroachdb-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cockroachdb-proxy
+  template:
+    metadata:
+      labels:
+        app: cockroachdb-proxy
+    spec:
+      containers:
+      - name: proxy
+        image: alpine/socat
+        args:
+        - tcp-listen:26257,fork,reuseaddr
+        - tcp:10.0.0.3:26257
+        ports:
+        - containerPort: 26257
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cockroachdb
+spec:
+  selector:
+    app: cockroachdb-proxy
+  ports:
+  - port: 26257
+    targetPort: 26257
