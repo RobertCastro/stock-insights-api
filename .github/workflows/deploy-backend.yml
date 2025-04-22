@@ -46,13 +46,29 @@ jobs:
         DIGEST=$(gcloud artifacts docker images describe us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }} --format='value(image_summary.fully_qualified_digest)')
         echo "DIGEST=$DIGEST" >> $GITHUB_OUTPUT
         
-    - name: Deploy to GKE
+    - name: Deploy CockroachDB
       run: |
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         gcloud container clusters get-credentials backend-cluster --zone ${{ secrets.GCP_ZONE }}
         
-        # Reemplazar el placeholder en el archivo de deployment
-        sed -i "s|PROJECT_ID_PLACEHOLDER|${{ secrets.GCP_PROJECT_ID }}|g" kubernetes/deployment.yaml
+        # Verificar si CockroachDB ya está desplegado
+        if ! kubectl get statefulset cockroachdb &> /dev/null; then
+          echo "Deploying CockroachDB..."
+          kubectl apply -f kubernetes/cockroachdb-k8s.yaml
+          
+          # Esperar a que CockroachDB esté listo
+          kubectl wait --for=condition=Ready pod/cockroachdb-0 --timeout=120s
+          
+          # Inicializar la base de datos si es necesario
+          kubectl exec -it cockroachdb-0 -- /cockroach/cockroach sql --insecure -e "CREATE DATABASE IF NOT EXISTS stockdb;"
+        else
+          echo "CockroachDB already deployed"
+        fi
+    
+    - name: Deploy Backend Application
+      run: |
+        export USE_GKE_GCLOUD_AUTH_PLUGIN=True
+        gcloud container clusters get-credentials backend-cluster --zone ${{ secrets.GCP_ZONE }}
         
         # Actualizar la imagen en el archivo de deployment antes de aplicarlo
         sed -i "s|us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:.*|${{ steps.image.outputs.DIGEST }}|g" kubernetes/deployment.yaml
