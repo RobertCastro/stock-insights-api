@@ -50,3 +50,20 @@ module "kubernetes" {
   
   depends_on = [module.network, module.cockroachdb]
 }
+
+# Regla de firewall específica para CockroachDB
+resource "google_compute_firewall" "cockroachdb_allow_sql" {
+  name    = "cockroachdb-allow-sql"
+  network = module.network.vpc_id
+  
+  allow {
+    protocol = "tcp"
+    ports    = ["26257", "8080"]
+  }
+  
+  # Permitir tráfico desde la subred de GKE
+  source_ranges = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]
+  
+  # Aplicar a instancias con la etiqueta cockroachdb
+  target_tags = ["cockroachdb"]
+}
