@@ -37,6 +37,15 @@ jobs:
         docker build -t us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }} .
         docker push us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
         
+    - name: Get Image Digest
+      id: image
+      run: |
+        # Esperar un momento para asegurar que la imagen esté disponible en Artifact Registry
+        sleep 5
+        # Obtener el digest de la imagen recién subida
+        DIGEST=$(gcloud artifacts docker images describe us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }} --format='value(image_summary.fully_qualified_digest)')
+        echo "DIGEST=$DIGEST" >> $GITHUB_OUTPUT
+        
     - name: Deploy to GKE
       run: |
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
@@ -47,11 +56,11 @@ jobs:
         
         # Intentar obtener el deployment para verificar si existe
         if kubectl get deployment backend-app &> /dev/null; then
-          # Si existe, actualizar la imagen
-          kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
+          # Si existe, actualizar la imagen usando el digest
+          kubectl set image deployment/backend-app backend=${{ steps.image.outputs.DIGEST }}
         else
           # Si no existe, aplicar el archivo de configuración completo
           kubectl apply -f kubernetes/deployment.yaml
-          # Después de crear, actualizar a la última imagen específica
-          kubectl set image deployment/backend-app backend=us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images/golang-backend:${{ github.sha }}
+          # Después de crear, actualizar a la última imagen específica usando el digest
+          kubectl set image deployment/backend-app backend=${{ steps.image.outputs.DIGEST }}
         fi
