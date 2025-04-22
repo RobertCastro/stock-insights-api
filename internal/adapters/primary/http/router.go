@@ -5,6 +5,7 @@ import (
 
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/primary/http/handlers"
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/cockroachdb"
+	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/stockapi"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
@@ -12,12 +13,14 @@ import (
 // Router maneja las rutas HTTP de la API
 type Router struct {
 	stockHandler *handlers.StockHandler
+	syncHandler  *handlers.SyncHandler
 }
 
 // NewRouter crea una nueva instancia del router
-func NewRouter(repo *cockroachdb.StockRepository) *Router {
+func NewRouter(repo *cockroachdb.StockRepository, client *stockapi.Client) *Router {
 	return &Router{
 		stockHandler: handlers.NewStockHandler(repo),
+		syncHandler:  handlers.NewSyncHandler(repo, client),
 	}
 }
 
@@ -63,6 +66,9 @@ func (r *Router) SetupRoutes() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	}).Methods("GET")
+
+	// Ruta para sincronizar stocks
+	api.HandleFunc("/sync", r.syncHandler.SyncStocks).Methods("POST")
 
 	handler := c.Handler(router)
 	return handler
