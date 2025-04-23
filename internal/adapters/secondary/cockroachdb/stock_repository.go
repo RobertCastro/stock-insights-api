@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "github.com/lib/pq"
 
@@ -350,4 +351,47 @@ func (r *StockRepository) GetStockByTicker(ctx context.Context, ticker string) (
 	}
 
 	return stock, nil
+}
+
+// GetStocksByDateRange recupera stocks en un rango de fechas específico
+func (r *StockRepository) GetStocksByDateRange(ctx context.Context, startDate, endDate time.Time) ([]models.Stock, error) {
+	query := `
+		SELECT 
+			ticker, company, target_from, target_to, 
+			action, brokerage, rating_from, rating_to, time
+		FROM stocks
+		WHERE time BETWEEN $1 AND $2
+		ORDER BY time DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, startDate, endDate)
+	if err != nil {
+		return nil, fmt.Errorf("error querying stocks by date range: %w", err)
+	}
+	defer rows.Close()
+
+	var stocks []models.Stock
+	for rows.Next() {
+		var stock models.Stock
+		if err := rows.Scan(
+			&stock.Ticker,
+			&stock.Company,
+			&stock.TargetFrom,
+			&stock.TargetTo,
+			&stock.Action,
+			&stock.Brokerage,
+			&stock.RatingFrom,
+			&stock.RatingTo,
+			&stock.Time,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning stock: %w", err)
+		}
+		stocks = append(stocks, stock)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating stocks: %w", err)
+	}
+
+	return stocks, nil
 }
