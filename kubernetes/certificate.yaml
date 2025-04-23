@@ -1,0 +1,7 @@
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: backend-certificate
+spec:
+  domains:
+    - api.soyrobert.co
