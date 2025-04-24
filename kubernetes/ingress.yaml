@@ -1,20 +1,28 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: backend-ingress
+  name: stock-insights-ingress
   annotations:
     kubernetes.io/ingress.class: "gce"
-    # habilitar TLS
-    # kubernetes.io/ingress.allow-http: "false"
+    networking.gke.io/managed-certificates: "api-soyrobert-cert"
+    networking.gke.io/v1beta1.FrontendConfig: "ssl-redirect"
 spec:
   rules:
-  - http:
+  - host: api.soyrobert.co
+    http:
       paths:
-      - path: /api/v1/*
+      - path: /
         pathType: Prefix
-        pathType: ImplementationSpecific
         backend:
           service:
-            name: backend-service
+            name: stock-insights-api
             port:
               number: 80
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: ssl-redirect
+spec:
+  redirectToHttps:
+    enabled: true

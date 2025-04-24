@@ -1,41 +1,131 @@
-# Crear cuenta de servicio para GKE
-resource "google_service_account" "gke_sa" {
-  account_id   = "gke-service-account"
-  display_name = "GKE Service Account"
-}
-
-resource "google_project_iam_member" "gke_sa_roles" {
-  for_each = toset([
-    "roles/container.developer",
-    "roles/storage.objectViewer",
-    "roles/artifactregistry.reader"
-  ])
-  
+provider "google" {
   project = var.project_id
-  role    = each.value
-  member  = "serviceAccount:${google_service_account.gke_sa.email}"
+  region  = var.region
 }
 
-# Módulo de red
-module "network" {
-  source = "./modules/network"
-  
-  network_name        = "backend-network"
-  region              = var.region
-  private_subnet_cidr = "10.0.0.0/16"
+resource "google_project_service" "services" {
+  for_each = toset([
+    "container.googleapis.com",     # GKE
+    "artifactregistry.googleapis.com", # Artifact Registry
+    "dns.googleapis.com",           # Cloud DNS
+    "compute.googleapis.com"        # Compute Engine
+  ])
+  project = var.project_id
+  service = each.key
+
+  disable_dependent_services = true
 }
 
-# Módulo de Kubernetes
-module "kubernetes" {
-  source = "./modules/kubernetes"
+
+# Red VPC para el cluster
+resource "google_compute_network" "vpc_network" {
+  name                    = "stock-insights-vpc"
+  auto_create_subnetworks = false
+  depends_on              = [google_project_service.services]
+}
+
+# Subred para el cluster
+resource "google_compute_subnetwork" "subnet" {
+  name          = "stock-insights-subnet"
+  ip_cidr_range = "10.0.0.0/16"
+  region        = var.region
+  network       = google_compute_network.vpc_network.id
   
-  cluster_name    = "backend-cluster"
-  zone            = var.zone
-  network_id      = module.network.vpc_id
-  subnet_id       = module.network.private_subnet_id
-  node_count      = var.gke_node_count
-  machine_type    = var.gke_machine_type
-  service_account = google_service_account.gke_sa.email
+  secondary_ip_range {
+    range_name    = "services-range"
+    ip_cidr_range = "10.1.0.0/16"
+  }
+
+  secondary_ip_range {
+    range_name    = "pod-ranges"
+    ip_cidr_range = "10.2.0.0/16"
+  }
+}
+
+# Firewall para permitir acceso al cluster
+resource "google_compute_firewall" "allow_internal" {
+  name    = "allow-internal"
+  network = google_compute_network.vpc_network.name
+
+  allow {
+    protocol = "icmp"
+  }
+
+  allow {
+    protocol = "tcp"
+    ports    = ["0-65535"]
+  }
+
+  allow {
+    protocol = "udp"
+    ports    = ["0-65535"]
+  }
+
+  source_ranges = ["10.0.0.0/16", "10.1.0.0/16", "10.2.0.0/16"]
+}
+
+# Cluster de GKE
+resource "google_container_cluster" "primary" {
+  name     = var.cluster_name
+  location = var.region
   
-  depends_on = [module.network]
+  # Eliminar el default node pool
+  remove_default_node_pool = true
+  initial_node_count       = 1
+
+  network    = google_compute_network.vpc_network.id
+  subnetwork = google_compute_subnetwork.subnet.id
+
+  ip_allocation_policy {
+    cluster_secondary_range_name  = "pod-ranges"
+    services_secondary_range_name = "services-range"
+  }
+
+  # Habilitar la autenticación de workload identity
+  workload_identity_config {
+    workload_pool = "${var.project_id}.svc.id.goog"
+  }
+
+  # Habilitar Network Policy para mejor seguridad
+  network_policy {
+    enabled = true
+  }
+
+  # Configuración de certificado SSL
+  addons_config {
+    http_load_balancing {
+      disabled = false
+    }
+  }
+
+  depends_on = [google_project_service.services]
+}
+
+# Node pool para las aplicaciones
+resource "google_container_node_pool" "primary_nodes" {
+  name       = "${var.cluster_name}-node-pool"
+  location   = var.region
+  cluster    = google_container_cluster.primary.name
+  node_count = 2
+
+  node_config {
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring",
+      "https://www.googleapis.com/auth/devstorage.read_only",
+      "https://www.googleapis.com/auth/compute",
+    ]
+
+    labels = {
+      env = "production"
+    }
+
+    machine_type = "e2-medium"
+    disk_size_gb = 50
+    disk_type    = "pd-standard"
+    
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+  }
 }

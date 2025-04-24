@@ -1,25 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: backend-app
+  name: stock-insights-api
+  labels:
+    app: stock-insights-api
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: backend
+      app: stock-insights-api
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
   template:
     metadata:
       labels:
-        app: backend
+        app: stock-insights-api
     spec:
       containers:
-      - name: backend
-        image: us-central1-docker.pkg.dev/stock-insights-457603/docker-images/golang-backend:latest
+      - name: api
+        image: IMAGE_TO_REPLACE
+        imagePullPolicy: Always
         ports:
-        - containerPort: 8080
+        - containerPort: 8000
         env:
+        - name: PORT
+          value: "8000"
         - name: DB_HOST
-          value: "cockroachdb-public"
+          value: "cockroachdb"
         - name: DB_PORT
           value: "26257"
         - name: DB_USER
@@ -27,18 +37,42 @@ spec:
         - name: DB_PASSWORD
           value: ""
         - name: DB_NAME
-          value: "stockdb"
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: dbname
         - name: DB_SSL_MODE
-          value: "disable"
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend-service
-spec:
-  selector:
-    app: backend
-  ports:
-  - port: 80
-    targetPort: 8000
-  type: LoadBalancer
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_SSL_MODE
+        - name: STOCK_API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: STOCK_API_BASE_URL
+        - name: STOCK_API_AUTH_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: STOCK_API_AUTH_TOKEN
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+      restartPolicy: Always

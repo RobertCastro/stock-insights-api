@@ -6,13 +6,15 @@ import (
 )
 
 type Config struct {
-	ServerPort string
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	DBSSLMode  string
+	ServerPort      string
+	DBHost          string
+	DBPort          string
+	DBUser          string
+	DBPassword      string
+	DBName          string
+	DBSSLMode       string
+	StockAPIBaseURL string
+	StockAPIToken   string
 }
 
 func NewConfig() *Config {
@@ -25,6 +27,10 @@ func NewConfig() *Config {
 		DBPassword: getEnv("DB_PASSWORD", ""),
 		DBName:     getEnv("DB_NAME", "stockdb"),
 		DBSSLMode:  getEnv("DB_SSL_MODE", "disable"),
+
+		// Stock API
+		StockAPIBaseURL: getEnv("STOCK_API_BASE_URL", "https://api.stockapi.com/v1/stocks"),
+		StockAPIToken:   getEnv("STOCK_API_AUTH_TOKEN", ""),
 	}
 }
 
