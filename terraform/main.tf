@@ -8,8 +8,7 @@ resource "google_project_service" "services" {
     "container.googleapis.com",     # GKE
     "artifactregistry.googleapis.com", # Artifact Registry
     "dns.googleapis.com",           # Cloud DNS
-    "compute.googleapis.com",       # Compute Engine
-    "certificatemanager.googleapis.com" # Certificate Manager
+    "compute.googleapis.com"        # Compute Engine
   ])
   project = var.project_id
   service = each.key
@@ -17,15 +16,6 @@ resource "google_project_service" "services" {
   disable_dependent_services = true
 }
 
-# Crear el repositorio de Artifact Registry si no existe
-resource "google_artifact_registry_repository" "docker_repo" {
-  provider = google
-  location = var.region
-  repository_id = "docker-images"
-  description = "Docker repository for Stock Insights API"
-  format = "DOCKER"
-  depends_on = [google_project_service.services]
-}
 
 # Red VPC para el cluster
 resource "google_compute_network" "vpc_network" {
@@ -138,16 +128,4 @@ resource "google_container_node_pool" "primary_nodes" {
       disable-legacy-endpoints = "true"
     }
   }
-}
-
-# Certificado SSL administrado por Google
-resource "google_certificate_manager_certificate" "default" {
-  name        = "api-soyrobert-co-cert"
-  description = "Certificate for api.soyrobert.co"
-  
-  managed {
-    domains = ["api.soyrobert.co"]
-  }
-  
-  depends_on = [google_project_service.services]
 }
