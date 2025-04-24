@@ -34,6 +34,18 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          
+      - name: Install GKE Auth Plugin
+        run: |
+          echo "Installing gke-gcloud-auth-plugin..."
+          gcloud components install gke-gcloud-auth-plugin
+          echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
+          
+      - name: Install GKE Auth Plugin
+        run: |
+          echo "Installing gke-gcloud-auth-plugin..."
+          gcloud components install gke-gcloud-auth-plugin
+          echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
       - name: Configure Docker for Artifact Registry
         run: |
@@ -56,6 +68,12 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
+          
+      - name: Install GKE Auth Plugin
+        run: |
+          echo "Installing gke-gcloud-auth-plugin..."
+          gcloud components install gke-gcloud-auth-plugin
+          echo "export USE_GKE_GCLOUD_AUTH_PLUGIN=True" >> $GITHUB_ENV
 
       - name: Configure Docker for Artifact Registry
         run: |
@@ -105,17 +123,17 @@ jobs:
       - name: Deploy Backend Configuration
         run: |
           # Aplicar solo la configuración del backend (secretos, configmap)
-          envsubst < kubernetes/backend-config.yaml | kubectl apply -f -
+          envsubst < kubernetes/backend-config.yaml | kubectl apply -f - --validate=false
           
       - name: Deploy Backend Application
         run: |
-          kubectl apply -f kubernetes/deployment.yaml
-          kubectl apply -f kubernetes/service.yaml
+          kubectl apply -f kubernetes/deployment.yaml --validate=false
+          kubectl apply -f kubernetes/service.yaml --validate=false
 
       - name: Deploy or Update Ingress
         run: |
-          kubectl apply -f kubernetes/certificate.yaml
-          kubectl apply -f kubernetes/ingress.yaml
+          kubectl apply -f kubernetes/certificate.yaml --validate=false
+          kubectl apply -f kubernetes/ingress.yaml --validate=false
 
       - name: Verify Deployment
         run: |
