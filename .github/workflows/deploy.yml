@@ -104,8 +104,19 @@ jobs:
           # Esperar a que CockroachDB esté listo (con timeout más largo)
           echo "Waiting for CockroachDB to be ready..."
           kubectl wait --for=condition=available --timeout=300s deployment/cockroachdb
+          
+          # Inicializar la base de datos manualmente
+          echo "Initializing CockroachDB..."
+          sleep 10  # Dar tiempo adicional para que el pod esté completamente listo
+          kubectl exec -it deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
+          kubectl exec -it deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+          kubectl exec -it deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
         else
           echo "CockroachDB already deployed"
+          # Verificar y actualizar credenciales si es necesario
+          echo "Updating user credentials..."
+          kubectl exec -it deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+          kubectl exec -it deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
         fi
         
         # Aplicar el deployment y servicio del backend
