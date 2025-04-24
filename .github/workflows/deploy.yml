@@ -13,8 +13,6 @@ env:
   REGISTRY: us-central1-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images
   BACKEND_IMAGE: backend
   DB_NAME: stockdb
-  DB_USER: stockuser
-  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
 
 jobs:
   build-and-deploy:
@@ -71,7 +69,7 @@ jobs:
         # Actualizar la imagen en el archivo de deployment antes de aplicarlo
         sed -i "s|IMAGE_TO_REPLACE|${{ steps.image.outputs.DIGEST }}|g" kubernetes/deployment.yaml
         
-        # Crear secretos y configmaps
+        # Crear secretos y configmaps para el modo inseguro (usando root sin contraseña)
         cat > kubernetes/backend-config-processed.yaml << EOF
         apiVersion: v1
         kind: Secret
@@ -79,8 +77,8 @@ jobs:
           name: db-credentials
         type: Opaque
         stringData:
-          username: $DB_USER
-          password: $DB_PASSWORD
+          username: root
+          password: 
           dbname: $DB_NAME
         ---
         apiVersion: v1
@@ -105,18 +103,12 @@ jobs:
           echo "Waiting for CockroachDB to be ready..."
           kubectl wait --for=condition=available --timeout=300s deployment/cockroachdb
           
-          # Inicializar la base de datos manualmente - usando root
+          # Inicializar la base de datos manualmente - solo crear la base de datos
           echo "Initializing CockroachDB..."
           sleep 10  # Dar tiempo adicional para que el pod esté completamente listo
           kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
         else
           echo "CockroachDB already deployed"
-          # Verificar y actualizar credenciales usando root
-          echo "Updating user credentials..."
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
         fi
         
         # Aplicar el deployment y servicio del backend

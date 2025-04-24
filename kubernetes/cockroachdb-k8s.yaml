@@ -57,17 +57,6 @@ spec:
         volumeMounts:
         - name: data
           mountPath: /cockroach/cockroach-data
-        env:
-        - name: COCKROACH_DATABASE
-          valueFrom:
-            secretKeyRef:
-              name: db-credentials
-              key: dbname
-        - name: COCKROACH_USER
-          valueFrom:
-            secretKeyRef:
-              name: db-credentials
-              key: username
         readinessProbe:
           httpGet:
             path: /health

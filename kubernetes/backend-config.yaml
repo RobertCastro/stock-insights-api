@@ -4,8 +4,8 @@ metadata:
   name: db-credentials
 type: Opaque
 stringData:
-  username: stockuser
-  password: ${DB_PASSWORD}
+  username: root
+  password: 
   dbname: stockdb
 ---
 apiVersion: v1
