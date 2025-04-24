@@ -105,18 +105,18 @@ jobs:
           echo "Waiting for CockroachDB to be ready..."
           kubectl wait --for=condition=available --timeout=300s deployment/cockroachdb
           
-          # Inicializar la base de datos manualmente - sin modo interactivo
+          # Inicializar la base de datos manualmente - usando root
           echo "Initializing CockroachDB..."
           sleep 10  # Dar tiempo adicional para que el pod esté completamente listo
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
+          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "CREATE DATABASE IF NOT EXISTS $DB_NAME;"
+          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
         else
           echo "CockroachDB already deployed"
-          # Verificar y actualizar credenciales sin modo interactivo
+          # Verificar y actualizar credenciales usando root
           echo "Updating user credentials..."
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
-          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
+          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "CREATE USER IF NOT EXISTS $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+          kubectl exec deployment/cockroachdb -- /cockroach/cockroach sql --insecure --user=root -e "GRANT ALL ON DATABASE $DB_NAME TO $DB_USER;"
         fi
         
         # Aplicar el deployment y servicio del backend
