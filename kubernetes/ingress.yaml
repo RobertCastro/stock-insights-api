@@ -4,16 +4,15 @@ metadata:
   name: stock-insights-ingress
   annotations:
     kubernetes.io/ingress.class: "gce"
-    kubernetes.io/ingress.global-static-ip-name: "stock-insights-api-ip"
-    networking.gke.io/managed-certificates: "api-soyrobert-certificate"
+    networking.gke.io/managed-certificates: "api-soyrobert-cert"
     networking.gke.io/v1beta1.FrontendConfig: "ssl-redirect"
 spec:
   rules:
   - host: api.soyrobert.co
     http:
       paths:
-      - path: /*
-        pathType: ImplementationSpecific
+      - path: /
+        pathType: Prefix
         backend:
           service:
             name: stock-insights-api

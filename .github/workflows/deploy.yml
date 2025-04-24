@@ -99,6 +99,8 @@ jobs:
         data:
           SERVER_PORT: "8000"
           DB_SSL_MODE: "disable"
+          STOCK_API_BASE_URL: "${{ secrets.STOCK_API_BASE_URL }}"
+          STOCK_API_AUTH_TOKEN: "${{ secrets.STOCK_API_AUTH_TOKEN }}"
         EOF
         
         # Aplicar recursos de Kubernetes

@@ -42,7 +42,20 @@ spec:
               name: db-credentials
               key: dbname
         - name: DB_SSL_MODE
-          value: "disable"
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: DB_SSL_MODE
+        - name: STOCK_API_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: STOCK_API_BASE_URL
+        - name: STOCK_API_AUTH_TOKEN
+          valueFrom:
+            configMapKeyRef:
+              name: api-config
+              key: STOCK_API_AUTH_TOKEN
         resources:
           requests:
             cpu: "100m"

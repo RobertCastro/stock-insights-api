@@ -8,6 +8,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/joho/godotenv"
+
 	httpAdapter "github.com/RobertCastro/stock-insights-api/internal/adapters/primary/http"
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/cockroachdb"
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/stockapi"
@@ -16,11 +18,26 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Printf("Nota: No se pudo cargar el archivo .env: %v", err)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	// Cargar configuración
 	cfg := config.NewConfig()
+
+	// Imprimir la configuración de la API (solo para debugging)
+	log.Printf("API Base URL configurada: %s", cfg.StockAPIBaseURL)
+	log.Printf("API Auth Token configurado: %s", maskToken(cfg.StockAPIToken))
+
+	if cfg.StockAPIBaseURL != "" {
+		os.Setenv("STOCK_API_BASE_URL", cfg.StockAPIBaseURL)
+	}
+	if cfg.StockAPIToken != "" {
+		os.Setenv("STOCK_API_AUTH_TOKEN", cfg.StockAPIToken)
+	}
 
 	// Conectar a la base de datos
 	db, err := database.Connect(cfg.GetDBConnectionString())
@@ -42,6 +59,10 @@ func main() {
 	// Verificar si se debe sincronizar con la API externa
 	syncFlag := os.Getenv("SYNC_DATA")
 	if syncFlag == "true" {
+		if os.Getenv("STOCK_API_AUTH_TOKEN") == "" {
+			log.Fatalf("Error: STOCK_API_AUTH_TOKEN environment variable is required for sync operation")
+		}
+
 		// Obtener todos los stocks de la API
 		fmt.Println("Obteniendo todos los stocks de la API...")
 		stocks, err := client.FetchAllStocks()
@@ -80,4 +101,12 @@ func main() {
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Error al iniciar el servidor HTTP: %v", err)
 	}
+}
+
+// Ocultar parte del token cuando se imprime en los logs
+func maskToken(token string) string {
+	if len(token) <= 8 {
+		return "***"
+	}
+	return token[:4] + "..." + token[len(token)-4:]
 }

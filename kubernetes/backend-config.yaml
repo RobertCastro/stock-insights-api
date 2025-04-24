@@ -15,3 +15,5 @@ metadata:
 data:
   SERVER_PORT: "8000"
   DB_SSL_MODE: "disable"
+  STOCK_API_BASE_URL: "https://api.example.com"
+  STOCK_API_AUTH_TOKEN: "" 
