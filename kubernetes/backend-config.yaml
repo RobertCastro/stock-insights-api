@@ -5,7 +5,7 @@ metadata:
 type: Opaque
 stringData:
   username: root
-  password: 
+  password: ""
   dbname: stockdb
 ---
 apiVersion: v1

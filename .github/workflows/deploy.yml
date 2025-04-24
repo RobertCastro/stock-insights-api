@@ -59,6 +59,11 @@ jobs:
         sleep 5
         # Obtener el digest de la imagen recién subida
         DIGEST=$(gcloud artifacts docker images describe $REGISTRY/$BACKEND_IMAGE:${{ github.sha }} --format='value(image_summary.fully_qualified_digest)')
+        # Si no se pudo obtener el digest, usar la tag directamente
+        if [ -z "$DIGEST" ]; then
+          DIGEST="$REGISTRY/$BACKEND_IMAGE:${{ github.sha }}"
+        fi
+        echo "Usando imagen: $DIGEST"
         echo "DIGEST=$DIGEST" >> $GITHUB_OUTPUT
         
     - name: Deploy to GKE
@@ -66,8 +71,14 @@ jobs:
         export USE_GKE_GCLOUD_AUTH_PLUGIN=True
         gcloud container clusters get-credentials $CLUSTER_NAME --region $REGION --project $PROJECT_ID
         
-        # Actualizar la imagen en el archivo de deployment antes de aplicarlo
-        sed -i "s|IMAGE_TO_REPLACE|${{ steps.image.outputs.DIGEST }}|g" kubernetes/deployment.yaml
+        # Actualizar la imagen en el archivo de deployment usando la imagen con tag
+        IMAGE="$REGISTRY/$BACKEND_IMAGE:${{ github.sha }}"
+        echo "Reemplazando IMAGE_TO_REPLACE con $IMAGE"
+        sed -i "s|IMAGE_TO_REPLACE|$IMAGE|g" kubernetes/deployment.yaml
+        
+        # Verificar la sustitución
+        echo "Contenido del deployment.yaml después de la sustitución:"
+        cat kubernetes/deployment.yaml | grep -A 3 image:
         
         # Crear secretos y configmaps para el modo inseguro (usando root sin contraseña)
         cat > kubernetes/backend-config-processed.yaml << EOF
@@ -78,7 +89,7 @@ jobs:
         type: Opaque
         stringData:
           username: root
-          password: 
+          password: ""
           dbname: $DB_NAME
         ---
         apiVersion: v1
