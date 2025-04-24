@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-credentials
+type: Opaque
+stringData:
+  username: root
+  password: ""
+  dbname: stockdb
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+data:
+  SERVER_PORT: "8000"
+  DB_SSL_MODE: "disable"
+  STOCK_API_BASE_URL: "https://api.example.com"
+  STOCK_API_AUTH_TOKEN: "" 

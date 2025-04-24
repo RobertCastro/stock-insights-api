@@ -395,3 +395,8 @@ func (r *StockRepository) GetStocksByDateRange(ctx context.Context, startDate, e
 
 	return stocks, nil
 }
+
+// Ping verifica la conexión a la base de datos
+func (r *StockRepository) Ping(ctx context.Context) error {
+	return r.db.PingContext(ctx)
+}

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: cockroachdb-public
+  name: cockroachdb
   labels:
     app: cockroachdb
 spec:
@@ -16,32 +16,23 @@ spec:
     app: cockroachdb
 ---
 apiVersion: v1
-kind: Service
+kind: PersistentVolumeClaim
+metadata:
+  name: cockroachdb-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: cockroachdb
   labels:
     app: cockroachdb
-  annotations:
-    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
-    publishNotReadyAddresses: "true"
 spec:
-  ports:
-  - port: 26257
-    targetPort: 26257
-    name: grpc
-  - port: 8080
-    targetPort: 8080
-    name: http
-  clusterIP: None
-  selector:
-    app: cockroachdb
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: cockroachdb
-spec:
-  serviceName: "cockroachdb"
   replicas: 1
   selector:
     matchLabels:
@@ -53,35 +44,32 @@ spec:
     spec:
       containers:
       - name: cockroachdb
-        image: cockroachdb/cockroach:v22.2.8
-        imagePullPolicy: IfNotPresent
-        resources:
-          requests:
-            cpu: "0.2"
-            memory: "512Mi"
-          limits:
-            cpu: "0.5"
-            memory: "1Gi"
+        image: cockroachdb/cockroach:v23.1.14
+        command:
+          - "/bin/bash"
+          - "-ecx"
+          - "exec /cockroach/cockroach start-single-node --insecure --advertise-addr=cockroachdb"
         ports:
         - containerPort: 26257
           name: grpc
         - containerPort: 8080
           name: http
-        command:
-          - "/bin/bash"
-          - "-ecx"
-          - |
-            # Start CockroachDB
-            exec /cockroach/cockroach start-single-node             --insecure             --advertise-addr=robert.cockroachdb             --http-addr=0.0.0.0             --listen-addr=0.0.0.0             --cache=256MiB             --max-sql-memory=256MiB
         volumeMounts:
-        - name: datadir
+        - name: data
           mountPath: /cockroach/cockroach-data
-  volumeClaimTemplates:
-  - metadata:
-      name: datadir
-    spec:
-      accessModes:
-        - "ReadWriteOnce"
-      resources:
-        requests:
-          storage: 5Gi
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: cockroachdb-data

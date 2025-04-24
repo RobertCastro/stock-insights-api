@@ -1,83 +1,94 @@
 package http
 
 import (
+	"log"
 	"net/http"
+	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/primary/http/handlers"
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/cockroachdb"
 	"github.com/RobertCastro/stock-insights-api/internal/adapters/secondary/stockapi"
 	"github.com/RobertCastro/stock-insights-api/internal/application/services"
-	"github.com/gorilla/mux"
-	"github.com/rs/cors"
 )
 
-// Router maneja las rutas HTTP de la API
 type Router struct {
 	stockHandler          *handlers.StockHandler
 	syncHandler           *handlers.SyncHandler
+	healthHandler         *handlers.HealthHandler
 	recommendationHandler *handlers.RecommendationHandler
 }
 
 // NewRouter crea una nueva instancia del router
 func NewRouter(repo *cockroachdb.StockRepository, client *stockapi.Client) *Router {
+
 	recommendationService := services.NewRecommendationService(repo)
 
+	stockHandler := handlers.NewStockHandler(repo)
+	syncHandler := handlers.NewSyncHandler(repo, client)
+	healthHandler := handlers.NewHealthHandler(repo, client)
+	recommendationHandler := handlers.NewRecommendationHandler(recommendationService)
+
 	return &Router{
-		stockHandler:          handlers.NewStockHandler(repo),
-		syncHandler:           handlers.NewSyncHandler(repo, client),
-		recommendationHandler: handlers.NewRecommendationHandler(recommendationService),
+		stockHandler:          stockHandler,
+		syncHandler:           syncHandler,
+		healthHandler:         healthHandler,
+		recommendationHandler: recommendationHandler,
 	}
 }
 
-// SetupRoutes configura todas las rutas de la API
+// Configura las rutas del router
 func (r *Router) SetupRoutes() http.Handler {
 	router := mux.NewRouter()
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization", "X-Requested-With"},
-		AllowCredentials: true,
-		MaxAge:           3600,
-	})
+	// Middleware para logging
+	router.Use(loggingMiddleware)
 
-	// Middleware para CORS
-	router.Use(func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", "*")
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-			if r.Method == "OPTIONS" {
-				w.WriteHeader(http.StatusOK)
-				return
-			}
-
-			next.ServeHTTP(w, r)
-		})
-	})
-
-	// API v1
+	// Rutas para la API
 	api := router.PathPrefix("/api/v1").Subrouter()
 
-	// Ruta para listar stocks (filtrado por ticker, brokerage, rating y ordenamiento)
+	// Rutas para stocks
 	api.HandleFunc("/stocks", r.stockHandler.ListStocks).Methods("GET")
-
-	// Ruta para obtener detalles de un stock específico
 	api.HandleFunc("/stocks/{ticker}", r.stockHandler.GetStockDetails).Methods("GET")
+
+	// Ruta para sincronización
+	api.HandleFunc("/sync", r.syncHandler.SyncStocks).Methods("POST")
 
 	// Ruta para recomendaciones
 	api.HandleFunc("/recommendations", r.recommendationHandler.GetRecommendations).Methods("GET")
 
-	// Ruta para sincronizar stocks
-	api.HandleFunc("/sync", r.syncHandler.SyncStocks).Methods("POST")
+	// Rutas para health checks
+	router.HandleFunc("/health", r.healthHandler.BasicHealth).Methods("GET")
+	router.HandleFunc("/health/detailed", r.healthHandler.DetailedHealth).Methods("GET")
 
-	// Ruta de salud
-	router.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"ok"}`))
-	}).Methods("GET")
+	// Configurar CORS
+	c := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	})
 
-	handler := c.Handler(router)
-	return handler
+	return c.Handler(router)
+}
+
+// Registra información sobre las solicitudes HTTP
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+
+		next.ServeHTTP(w, r)
+
+		duration := time.Since(start)
+		path := r.URL.Path
+		method := r.Method
+		log.Printf("%s %s %s", method, path, duration)
+		_ = method
+		_ = path
+		_ = duration
+	})
 }
