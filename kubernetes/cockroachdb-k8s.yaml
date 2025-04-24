@@ -1,0 +1,108 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cockroachdb
+  labels:
+    app: cockroachdb
+spec:
+  ports:
+  - port: 26257
+    targetPort: 26257
+    name: grpc
+  - port: 8080
+    targetPort: 8080
+    name: http
+  selector:
+    app: cockroachdb
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cockroachdb-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cockroachdb
+  labels:
+    app: cockroachdb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cockroachdb
+  template:
+    metadata:
+      labels:
+        app: cockroachdb
+    spec:
+      containers:
+      - name: cockroachdb
+        image: cockroachdb/cockroach:v23.1.14
+        command:
+          - "/bin/bash"
+          - "-ecx"
+          - "exec /cockroach/cockroach start-single-node --insecure --advertise-addr=cockroachdb"
+        ports:
+        - containerPort: 26257
+          name: grpc
+        - containerPort: 8080
+          name: http
+        volumeMounts:
+        - name: data
+          mountPath: /cockroach/cockroach-data
+        env:
+        - name: COCKROACH_DATABASE
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: dbname
+        - name: COCKROACH_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: username
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: cockroachdb-data
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cockroachdb-init
+spec:
+  template:
+    spec:
+      containers:
+      - name: cockroachdb-init
+        image: cockroachdb/cockroach:v23.1.14
+        command:
+          - "/bin/bash"
+          - "-c"
+          - |
+            sleep 30
+            /cockroach/cockroach sql --insecure --host=cockroachdb --execute="
+            CREATE USER IF NOT EXISTS '${DB_USER}' WITH PASSWORD '${DB_PASSWORD}';
+            CREATE DATABASE IF NOT EXISTS '${DB_NAME}';
+            GRANT ALL ON DATABASE '${DB_NAME}' TO '${DB_USER}';
+            "
+      restartPolicy: OnFailure

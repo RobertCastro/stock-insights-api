@@ -1,0 +1,183 @@
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GCP_ZONE: ${{ secrets.GCP_ZONE }}
+  CLUSTER_NAME: stock-insights-cluster
+  REGISTRY: us-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/docker-images
+  BACKEND_IMAGE: backend
+  DB_NAME: stockdb
+  DB_USER: stockuser
+  DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+
+jobs:
+  setup:
+    name: Setup and Authenticate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker us-docker.pkg.dev --quiet
+
+  build:
+    name: Build and Push Docker Image
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker us-docker.pkg.dev --quiet
+
+      - name: Build Docker image
+        run: |
+          docker build -t $REGISTRY/$BACKEND_IMAGE:${{ github.sha }} .
+          docker tag $REGISTRY/$BACKEND_IMAGE:${{ github.sha }} $REGISTRY/$BACKEND_IMAGE:latest
+
+      - name: Push Docker image
+        run: |
+          docker push $REGISTRY/$BACKEND_IMAGE:${{ github.sha }}
+          docker push $REGISTRY/$BACKEND_IMAGE:latest
+
+  terraform:
+    name: Deploy Infrastructure with Terraform
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Create terraform.tfvars
+        run: |
+          cat > terraform/terraform.tfvars << EOF
+          project_id = "${{ secrets.GCP_PROJECT_ID }}"
+          region = "${{ secrets.GCP_ZONE }}"
+          cluster_name = "$CLUSTER_NAME"
+          db_name = "$DB_NAME"
+          db_user = "$DB_USER"
+          db_password = "${{ secrets.DB_PASSWORD }}"
+          EOF
+
+      - name: Terraform Init
+        working-directory: ./terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ./terraform
+        run: terraform apply -auto-approve
+
+  deploy:
+    name: Deploy to GKE
+    needs: terraform
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        run: |
+          gcloud container clusters get-credentials $CLUSTER_NAME --zone $GCP_ZONE --project $PROJECT_ID
+
+      - name: Update Kubernetes Deployment Image
+        run: |
+          sed -i "s|IMAGE_TO_REPLACE|$REGISTRY/$BACKEND_IMAGE:${{ github.sha }}|g" kubernetes/deployment.yaml
+
+      - name: Deploy CockroachDB
+        run: |
+          kubectl apply -f kubernetes/cockroachdb-k8s.yaml
+          # Esperar a que CockroachDB esté listo
+          kubectl wait --for=condition=available --timeout=300s deployment/cockroachdb
+
+      - name: Deploy Backend
+        run: |
+          kubectl apply -f kubernetes/backend-config.yaml
+          kubectl apply -f kubernetes/deployment.yaml
+          kubectl apply -f kubernetes/service.yaml
+
+      - name: Setup Certificate and Ingress
+        run: |
+          kubectl apply -f kubernetes/certificate.yaml
+          kubectl apply -f kubernetes/ingress.yaml
+
+      - name: Verify Deployment
+        run: |
+          kubectl get deployments
+          kubectl get services
+          kubectl get ingress
+          
+      - name: Get Ingress IP for DNS Configuration
+        run: |
+          echo "=================================================="
+          echo "IMPORTANTE: Configuración DNS manual requerida"
+          echo "=================================================="
+          echo "Por favor, espere unos minutos hasta que se asigne una IP al ingress"
+          echo "Luego, ejecute este comando para obtener la IP:"
+          echo "kubectl get ingress stock-insights-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}'"
+          echo ""
+          echo "Una vez obtenida la IP, configure un registro A en Namecheap:"
+          echo "Tipo: A"
+          echo "Host: api"
+          echo "Valor: [LA_IP_DEL_INGRESS]"
+          echo "TTL: Automático"
+          echo "=================================================="
+          
+          # Intentar obtener la IP, pero puede que no esté disponible inmediatamente
+          IP=$(kubectl get ingress stock-insights-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "Pendiente")
+          echo "IP actual del ingress (puede estar pendiente): $IP"
+          echo "Si muestra 'Pendiente', verifique manualmente en unos minutos"
