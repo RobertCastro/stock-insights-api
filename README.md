@@ -202,6 +202,14 @@ Para verificar el estado del despliegue, puedes revisar:
   kubectl get services
   ```
 
+#### Capturas de pantalla
+
+![image](https://github.com/user-attachments/assets/e8eb4bd3-89ae-4561-826c-ee778afc3a85)
+![image](https://github.com/user-attachments/assets/162f310e-8b4a-47c2-b7f5-5f22e327158c)
+
+
+
+
 ### Despliegue manual (alternativa)
 
 Para realizar el despliegue manualmente, sigue estos pasos:
